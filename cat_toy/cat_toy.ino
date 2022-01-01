@@ -13,16 +13,16 @@ const int servoTopPin = 10;
 // 0-180 for servo (exclusive)
 const int bottomServoMinAngle = 90;
 const int bottomServoMaxAngle = 120;
-const int topServoMinAngle = 45;
+const int topServoMinAngle = 55;
 const int topServoMaxAngle = 180 - topServoMinAngle;
 
 const int minQuickBeforeLongPause = 3;
 const int maxQuickBeforeLongPause = 17;
 
-const float minSwingRateS = 0.2;
-const float maxSwingRateS = 0.45;
-const float minQuickDelayS = 0.25;
-const float maxQuickDelayS = 0.75;
+const float minSwingRateS = 0.4;
+const float maxSwingRateS = 0.7;
+const float minQuickDelayS = 0.45;
+const float maxQuickDelayS = 0.85;
 const float minLongDelayS = 1;
 const float maxLongDelayS = 7;
 
@@ -95,8 +95,8 @@ void setStateRunning(StateRunning newState)
   switch (stateRunning)
   {
   case StateRunning::stopped:
-    servoBottom.setAngle(0, 0);
-    servoTop.setAngle(.5, 0);
+    servoBottom.setAngle(0, 0, TweenType::linear);
+    servoTop.setAngle(.5, 0, TweenType::linear);
     break;
   case StateRunning::running:
     break;
@@ -149,9 +149,9 @@ float swingServos()
   float halfTime = swingTime / 2.0;
   float newAngle = randomFloat();
 
-  servoBottom.setAngle(1, halfTime);
-  servoBottom.queueAngle(0, halfTime);
-  servoTop.setAngle(newAngle, swingTime);
+  servoBottom.setAngle(1, halfTime, TweenType::out);
+  servoBottom.queueAngle(0, halfTime, TweenType::in);
+  servoTop.setAngle(newAngle, swingTime, TweenType::linear);
   return swingTime;
 }
 

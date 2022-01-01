@@ -9,7 +9,7 @@ void ServoManager::init(int pin, int min, int max)
   range = max - min;
   mid = max / 2;
   angle = mid;
-  setAngle(0.5, 0);
+  setAngle(0.5, 0, TweenType::linear);
 }
 
 void ServoManager::update(float dt)
@@ -18,23 +18,24 @@ void ServoManager::update(float dt)
   servo.write(angle);
 
   // Run second half of change, if we have a queue
-  if (!tween.isRunning() && angleQueue >= 0)
+  if (!tween.isRunning() && queuedAngle >= 0)
   {
-    setAngle(angleQueue, angleDuration);
+    setAngle(queuedAngle, queuedDuration, queuedTween);
   }
 }
 
-void ServoManager::setAngle(float normalized, float duration)
+void ServoManager::setAngle(float normalized, float duration, TweenType type)
 {
   int newAngle = min + range * normalized;
-  tween.tween(angle, newAngle, duration);
-  angleQueue = -1; // Clear any queue
+  tween.tween(angle, newAngle, duration, type);
+  queuedAngle = -1; // Clear any queue
 }
 
-void ServoManager::queueAngle(float normalized, float duration)
+void ServoManager::queueAngle(float normalized, float duration, TweenType type)
 {
-  angleQueue = normalized;
-  angleDuration = duration;
+  queuedAngle = normalized;
+  queuedDuration = duration;
+  queuedTween = type;
 }
 
 bool ServoManager::isRunning()
