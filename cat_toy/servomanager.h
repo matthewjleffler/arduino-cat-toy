@@ -12,11 +12,13 @@ public:
   void setAngle(float normalized, float duration, TweenType type);
   void queueAngle(float normalized, float duration, TweenType type);
   bool isRunning();
+  float getAngleNormalized();
 
 private:
   Servo servo;
   Tween tween;
   float angle;
+  float destinationAngleNormalized;
   float queuedAngle;
   float queuedDuration;
   TweenType queuedTween;
