@@ -9,16 +9,17 @@ class ServoManager
 public:
   void init(int pin, int min, int max);
   void update(float dt);
-  void setAngle(float normalized, float duration);
-  void queueAngle(float normalized, float duration);
+  void setAngle(float normalized, float duration, TweenType type);
+  void queueAngle(float normalized, float duration, TweenType type);
   bool isRunning();
 
 private:
   Servo servo;
   Tween tween;
   float angle;
-  float angleQueue;
-  float angleDuration;
+  float queuedAngle;
+  float queuedDuration;
+  TweenType queuedTween;
   int min;
   int max;
   int mid;
