@@ -26,7 +26,8 @@ void ServoManager::update(float dt)
 
 void ServoManager::setAngle(float normalized, float duration, TweenType type)
 {
-  int newAngle = min + range * normalized;
+  destinationAngleNormalized = normalized;
+  float newAngle = min + range * normalized;
   tween.tween(angle, newAngle, duration, type);
   queuedAngle = -1; // Clear any queue
 }
@@ -41,4 +42,9 @@ void ServoManager::queueAngle(float normalized, float duration, TweenType type)
 bool ServoManager::isRunning()
 {
   return tween.isRunning();
+}
+
+float ServoManager::getAngleNormalized()
+{
+  return destinationAngleNormalized;
 }
