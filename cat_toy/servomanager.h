@@ -10,7 +10,7 @@ public:
   void init(int pin, int min, int max);
   void update(float dt);
   void setAngle(float normalized, float duration, TweenType type);
-  void queueAngle(float normalized, float duration, TweenType type);
+  void queueAngle(float delay, float normalized, float duration, TweenType type);
   bool isRunning();
   float getAngleNormalized();
 
@@ -19,6 +19,7 @@ private:
   Tween tween;
   float angle;
   float destinationAngleNormalized;
+  float queuedDelay;
   float queuedAngle;
   float queuedDuration;
   TweenType queuedTween;

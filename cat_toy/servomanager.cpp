@@ -20,7 +20,11 @@ void ServoManager::update(float dt)
   // Run second half of change, if we have a queue
   if (!tween.isRunning() && queuedAngle >= 0)
   {
-    setAngle(queuedAngle, queuedDuration, queuedTween);
+    queuedDelay -= dt;
+    if (queuedDelay < 0)
+    {
+      setAngle(queuedAngle, queuedDuration, queuedTween);
+    }
   }
 }
 
@@ -32,8 +36,9 @@ void ServoManager::setAngle(float normalized, float duration, TweenType type)
   queuedAngle = -1; // Clear any queue
 }
 
-void ServoManager::queueAngle(float normalized, float duration, TweenType type)
+void ServoManager::queueAngle(float delay, float normalized, float duration, TweenType type)
 {
+  queuedDelay = delay;
   queuedAngle = normalized;
   queuedDuration = duration;
   queuedTween = type;

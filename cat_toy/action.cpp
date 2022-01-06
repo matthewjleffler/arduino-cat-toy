@@ -4,6 +4,8 @@
 
 // Action constants
 
+// #define LOG
+
 // Debug test a specific mode. stop means no override
 const ActionType overrideType = ActionType::stop;
 
@@ -97,10 +99,7 @@ void Action::pickNewType()
   // Normal random picking
   else
   {
-    do
-    {
-      newActionType = randomType();
-    } while (newActionType == lastActionType);
+    newActionType = randomType();
   }
 
   setType(newActionType);
@@ -108,40 +107,37 @@ void Action::pickNewType()
 
 void Action::setType(ActionType type)
 {
-  lastActionType = actionType;
-  actionType = type;
-
   Serial.print("Action::startType: ");
-  Serial.println(actionType);
+  actionType = type;
 
   switch (actionType)
   {
   case ActionType::pause:
     count = -1;
     timer = Random::randomFloatRange(pauseDelayMinS, pauseDelayMaxS);
-    Serial.print("Pause time: ");
+    Serial.print("pause time: ");
     Serial.println(timer);
     break;
   case ActionType::bob:
     count = Random::randomInt(bobCountMin, bobCountMax);
     timer = -1;
-    Serial.print("Bob count: ");
+    Serial.print("bob count: ");
     Serial.println(count);
     break;
   case ActionType::swing:
     count = Random::randomInt(swingCountMin, swingCountMax);
     timer = -1;
-    Serial.print("Swing count: ");
+    Serial.print("swing count: ");
     Serial.println(count);
     break;
   case ActionType::swish:
     count = Random::randomInt(swishCountMin, swishCountMax);
     timer = -1;
-    Serial.print("Swish count: ");
+    Serial.print("swish count: ");
     Serial.println(count);
     break;
   case ActionType::stop:
-    Serial.println("Stop");
+    Serial.println("stop");
     servoBottom->setAngle(0, 0, TweenType::linear);
     servoTop->setAngle(.5, 0, TweenType::linear);
     break;
@@ -150,20 +146,51 @@ void Action::setType(ActionType type)
 
 ActionType Action::randomType()
 {
-  // TODO(mleffler): Weighted randomness? Logical tree of available actions?
-  int random = Random::randomInt(ActionType::pause, ActionType::stop);
-  return (ActionType)random;
+  // TODO(mleffler): Fill out with weights
+  switch (actionType)
+  {
+  case ActionType::stop:
+  case ActionType::pause:
+    randomActionLength = 3;
+    randomActionArray[0] = ActionType::bob;
+    randomActionArray[1] = ActionType::swing;
+    randomActionArray[2] = ActionType::swish;
+    break;
+  case ActionType::bob:
+    randomActionLength = 5;
+    randomActionArray[0] = ActionType::pause;
+    randomActionArray[1] = ActionType::swing;
+    randomActionArray[2] = ActionType::swing;
+    randomActionArray[3] = ActionType::swish;
+    randomActionArray[4] = ActionType::swish;
+    break;
+  case ActionType::swing:
+    randomActionLength = 5;
+    randomActionArray[0] = ActionType::pause;
+    randomActionArray[1] = ActionType::bob;
+    randomActionArray[2] = ActionType::bob;
+    randomActionArray[3] = ActionType::swish;
+    randomActionArray[4] = ActionType::swish;
+    break;
+  case ActionType::swish:
+    randomActionLength = 5;
+    randomActionArray[0] = ActionType::pause;
+    randomActionArray[1] = ActionType::bob;
+    randomActionArray[2] = ActionType::bob;
+    randomActionArray[3] = ActionType::swing;
+    randomActionArray[4] = ActionType::swing;
+    break;
+  }
+
+  int random = Random::randomInt(0, randomActionLength);
+  return randomActionArray[random];
 }
 
 float Action::pickNewRangeForTopServo()
 {
   // Pick new range at a distance from current angle
   float currentAngleNormalized = servoTop->getAngleNormalized();
-  Serial.print("Current: ");
-  Serial.print(currentAngleNormalized);
   float change = Random::randomFloatRange(swishRangeMin, swishRangeMax);
-  Serial.print(" change: ");
-  Serial.print(change);
 
   // Send it in the other direction from the half of the range we're in
   float newAngle;
@@ -175,8 +202,6 @@ float Action::pickNewRangeForTopServo()
   {
     newAngle = currentAngleNormalized + change;
   }
-  Serial.print(" new: ");
-  Serial.print(newAngle);
 
   // Clamp the angle
   if (newAngle < 0)
@@ -187,8 +212,15 @@ float Action::pickNewRangeForTopServo()
   {
     newAngle = 1;
   }
-  Serial.print(" clamped: ");
+
+#ifdef LOG
+  Serial.print("Current: ");
+  Serial.print(currentAngleNormalized);
+  Serial.print(" change: ");
+  Serial.print(change);
+  Serial.print(" new: ");
   Serial.println(newAngle);
+#endif
 
   return newAngle;
 }
@@ -203,17 +235,19 @@ void Action::bobServos()
   count--;
 
   float bobTime = Random::randomFloatRange(bobRateMinS, bobRateMaxS);
-  float halfTime = bobTime / 2.0;
+  float thirdTime = thirdTime / 3.0;
 
-  servoBottom->setAngle(1, halfTime, TweenType::out);
-  servoBottom->queueAngle(0, halfTime, TweenType::in);
+  servoBottom->setAngle(1, thirdTime, TweenType::out);
+  servoBottom->queueAngle(thirdTime, 0, thirdTime, TweenType::in);
 
   timer = bobTime + Random::randomFloatRange(bobDelayMinS, bobDelayMaxS);
 
+#ifdef LOG
   Serial.print("Bobs remaining: ");
   Serial.print(count);
   Serial.print(" time: ");
   Serial.println(timer);
+#endif
 }
 
 void Action::swingServos()
@@ -226,19 +260,21 @@ void Action::swingServos()
   count--;
 
   float swingTime = Random::randomFloatRange(swingRateMinS, swingRateMaxS);
-  float halfTime = swingTime / 2.0;
+  float thirdTime = swingTime / 3.0;
   float newAngle = pickNewRangeForTopServo();
 
-  servoBottom->setAngle(1, halfTime, TweenType::out);
-  servoBottom->queueAngle(0, halfTime, TweenType::in);
+  servoBottom->setAngle(1, thirdTime, TweenType::out);
+  servoBottom->queueAngle(thirdTime, 0, thirdTime, TweenType::in);
   servoTop->setAngle(newAngle, swingTime, TweenType::linear);
 
   timer = swingTime + Random::randomFloatRange(swingDelayMinS, swingDelayMaxS);
 
+#ifdef LOG
   Serial.print("Swing remaining: ");
   Serial.print(count);
   Serial.print(" time: ");
   Serial.println(timer);
+#endif
 }
 
 void Action::swishServos()
@@ -258,10 +294,12 @@ void Action::swishServos()
 
   timer = swishTime + Random::randomFloatRange(swishDelayMaxS, swishDelayMaxS);
 
+#ifdef LOG
   Serial.print("Swish remaining: ");
   Serial.print(count);
   Serial.print(" time: ");
   Serial.print(timer);
   Serial.print(" angle: ");
   Serial.println(newAngle);
+#endif
 }
