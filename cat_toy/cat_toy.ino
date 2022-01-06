@@ -2,6 +2,11 @@
 #include "random.h"
 #include "action.h"
 
+// TODO:
+//  Weighted randomness for the various actions
+//  Cooldown time periods for bottom servo
+//  Min restart cooldown timer
+
 enum StateRunning
 {
   stopped,
@@ -18,12 +23,16 @@ const int bottomServoMaxAngle = 120;
 const int topServoMinAngle = 55;
 const int topServoMaxAngle = 180 - topServoMinAngle;
 
+// Shutdown timer
+const float shutdownTimerMaxS = 10 * 60; // 10 minutes
+
 StateRunning stateRunning;
 ServoManager servoBottom;
 ServoManager servoTop;
 Action action;
 bool buttonPressed = false;
 int lastTime;
+float shutdownTimer;
 
 void setup()
 {
@@ -55,6 +64,7 @@ void update(float dt)
   bool buttonFresh = testButtonPressed();
   if (buttonFresh)
   {
+    Serial.println("Button pressed");
     switch (stateRunning)
     {
     case StateRunning::running:
@@ -69,6 +79,11 @@ void update(float dt)
   switch (stateRunning)
   {
   case StateRunning::running:
+    shutdownTimer -= dt;
+    if (shutdownTimer < 0)
+    {
+      setStateRunning(StateRunning::stopped);
+    }
     action.update(dt);
     break;
   }
@@ -89,6 +104,7 @@ void setStateRunning(StateRunning newState)
     action.stop();
     break;
   case StateRunning::running:
+    shutdownTimer = shutdownTimerMaxS;
     action.start();
     break;
   }

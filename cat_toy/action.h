@@ -34,9 +34,10 @@ private:
   ServoManager *servoBottom;
   ServoManager *servoTop;
   ActionType actionType;
-  ActionType lastActionType;
   int count = -1;
   float timer = -1;
+  int randomActionLength;
+  ActionType randomActionArray[ActionType::stop * 4]; // 4x the max number of types
 };
 
 #endif //action_h
