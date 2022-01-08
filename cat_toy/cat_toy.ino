@@ -2,11 +2,6 @@
 #include "random.h"
 #include "action.h"
 
-// TODO:
-//  Weighted randomness for the various actions
-//  Cooldown time periods for bottom servo
-//  Min restart cooldown timer
-
 enum StateRunning
 {
   stopped,
@@ -24,13 +19,16 @@ const int topServoMinAngle = 55;
 const int topServoMaxAngle = 180 - topServoMinAngle;
 
 // Shutdown timer
-const float shutdownTimerMaxS = 10 * 60; // 10 minutes
+const float shutdownTimerMaxS = 30 * 60; // 30 minutes
+const float buttonPressShutdownTimerS = 5;
 
 StateRunning stateRunning;
 ServoManager servoBottom;
 ServoManager servoTop;
 Action action;
-bool buttonPressed = false;
+bool buttonPressed;
+bool buttonPressStartedWhileRunning;
+float buttonPressTimer;
 int lastTime;
 float shutdownTimer;
 
@@ -61,20 +59,7 @@ void loop()
 void update(float dt)
 {
   // Test input
-  bool buttonFresh = testButtonPressed();
-  if (buttonFresh)
-  {
-    Serial.println("Button pressed");
-    switch (stateRunning)
-    {
-    case StateRunning::running:
-      setStateRunning(StateRunning::stopped);
-      break;
-    case StateRunning::stopped:
-      setStateRunning(StateRunning::running);
-      break;
-    }
-  }
+  testButtonInput(dt);
 
   switch (stateRunning)
   {
@@ -110,13 +95,51 @@ void setStateRunning(StateRunning newState)
   }
 }
 
-bool testButtonPressed()
+void testButtonInput(float dt)
 {
   bool lastButton = buttonPressed;
   buttonPressed = digitalRead(buttonPin);
-  if (buttonPressed && !lastButton)
+  bool buttonFresh = buttonPressed && !lastButton;
+  bool buttonReleased = !buttonPressed && lastButton;
+
+  if (buttonFresh)
   {
-    return true;
+    Serial.println("Button Pressed");
   }
-  return false;
+
+  if (buttonReleased)
+  {
+    Serial.println("Button Released");
+    // Clear this flag
+    buttonPressStartedWhileRunning = false;
+    buttonPressTimer = 0;
+  }
+
+  if (buttonPressed)
+  {
+    buttonPressTimer += dt;
+  }
+
+  switch (stateRunning)
+  {
+  case StateRunning::stopped:
+    if (buttonFresh)
+    {
+      setStateRunning(StateRunning::running);
+    }
+    break;
+  case StateRunning::running:
+    if (buttonFresh)
+    {
+      buttonPressStartedWhileRunning = true;
+    }
+    if (buttonPressed &&
+        buttonPressStartedWhileRunning &&
+        buttonPressTimer >= buttonPressShutdownTimerS)
+    {
+      Serial.println("Shutdown button held for long period.");
+      setStateRunning(StateRunning::stopped);
+    }
+    break;
+  }
 }
