@@ -4,10 +4,16 @@
 
 // Action constants
 
+// Uncomment this to build with more detailed logging
 // #define LOG
 
-// Debug test a specific mode. stop means no override
-const ActionType overrideType = ActionType::stop;
+// Uncomment this to test a specific action type repeatedly
+// #define OVERRIDE
+
+#ifdef OVERRIDE
+// Debug test a specific mode
+const ActionType overrideType = ActionType::wiggle;
+#endif
 
 // Pause
 const float pauseDelayMinS = 1;
@@ -24,8 +30,8 @@ const float bobDelayMaxS = 0.4;
 // Swing
 const int swingCountMin = 3;
 const int swingCountMax = 17;
-const float swingRateMinS = 0.4;
-const float swingRateMaxS = 0.7;
+const float swingRateMinS = 0.2;
+const float swingRateMaxS = 0.5;
 const float swingDelayMinS = 0.45;
 const float swingDelayMaxS = 0.85;
 
@@ -35,9 +41,16 @@ const int swishCountMax = 17;
 const float swishRangeMin = 0.4;
 const float swishRangeMax = 0.8;
 const float swishRateMinS = 0.15;
-const float swishRateMaxS = 0.6;
+const float swishRateMaxS = 0.5;
 const float swishDelayMinS = 0.1;
 const float swishDelayMaxS = 0.4;
+
+// Wiggle
+const int wiggleCountMin = 6;
+const int wiggleCountMax = 29;
+const float wiggleSwingRangeMin = 0.05;
+const float wiggleSwingRangeMax = 0.2;
+const float wiggleSwingRate = 0.1;
 
 void Action::init(ServoManager *bottom, ServoManager *top)
 {
@@ -61,6 +74,9 @@ void Action::update(float dt)
   case ActionType::swish:
     swishServos();
     break;
+  case ActionType::wiggle:
+    wiggleServos();
+    break;
   }
 
   // Finished this action
@@ -80,29 +96,33 @@ void Action::stop()
   setType(ActionType::stop);
 }
 
+void Action::fillRandom(ActionType type, int count)
+{
+  int max = randomActionLength + count;
+  for (int i = randomActionLength; i < max; i++)
+  {
+    randomActionArray[i] = type;
+  }
+  randomActionLength = max;
+}
+
 void Action::pickNewType()
 {
-  ActionType newActionType;
-
+#ifdef OVERRIDE
   // Debug override testing
-  if (overrideType != ActionType::stop)
+  if (actionType == overrideType)
   {
-    if (actionType == overrideType)
-    {
-      newActionType = ActionType::pause;
-    }
-    else
-    {
-      newActionType = overrideType;
-    }
+    setType(ActionType::pause);
   }
-  // Normal random picking
   else
   {
-    newActionType = randomType();
+    setType(overrideType);
   }
-
+#else
+  // Normal random picking
+  ActionType newActionType = randomType();
   setType(newActionType);
+#endif
 }
 
 void Action::setType(ActionType type)
@@ -136,6 +156,11 @@ void Action::setType(ActionType type)
     Serial.print("swish count: ");
     Serial.println(count);
     break;
+  case ActionType::wiggle:
+    count = Random::randomInt(wiggleCountMin, wiggleCountMax);
+    timer = -1;
+    Serial.print("wiggle count: ");
+    Serial.println(count);
   case ActionType::stop:
     Serial.println("stop");
     servoBottom->setAngle(0, 0, TweenType::linear);
@@ -146,39 +171,36 @@ void Action::setType(ActionType type)
 
 ActionType Action::randomType()
 {
-  // TODO(mleffler): Fill out with weights
+  randomActionLength = 0;
   switch (actionType)
   {
   case ActionType::stop:
   case ActionType::pause:
-    randomActionLength = 3;
-    randomActionArray[0] = ActionType::bob;
-    randomActionArray[1] = ActionType::swing;
-    randomActionArray[2] = ActionType::swish;
+    fillRandom(ActionType::bob, 1);
+    fillRandom(ActionType::swing, 1);
+    fillRandom(ActionType::swish, 1);
+    fillRandom(ActionType::wiggle, 1);
     break;
   case ActionType::bob:
-    randomActionLength = 5;
-    randomActionArray[0] = ActionType::pause;
-    randomActionArray[1] = ActionType::swing;
-    randomActionArray[2] = ActionType::swing;
-    randomActionArray[3] = ActionType::swish;
-    randomActionArray[4] = ActionType::swish;
+    fillRandom(ActionType::pause, 1);
+    fillRandom(ActionType::swing, 3);
+    fillRandom(ActionType::swish, 3);
+    fillRandom(ActionType::wiggle, 1);
     break;
   case ActionType::swing:
-    randomActionLength = 5;
-    randomActionArray[0] = ActionType::pause;
-    randomActionArray[1] = ActionType::bob;
-    randomActionArray[2] = ActionType::bob;
-    randomActionArray[3] = ActionType::swish;
-    randomActionArray[4] = ActionType::swish;
+    fillRandom(ActionType::pause, 1);
+    fillRandom(ActionType::bob, 3);
+    fillRandom(ActionType::swish, 3);
+    fillRandom(ActionType::wiggle, 1);
     break;
   case ActionType::swish:
-    randomActionLength = 5;
-    randomActionArray[0] = ActionType::pause;
-    randomActionArray[1] = ActionType::bob;
-    randomActionArray[2] = ActionType::bob;
-    randomActionArray[3] = ActionType::swing;
-    randomActionArray[4] = ActionType::swing;
+    fillRandom(ActionType::pause, 1);
+    fillRandom(ActionType::bob, 3);
+    fillRandom(ActionType::swing, 3);
+    fillRandom(ActionType::wiggle, 1);
+    break;
+  case ActionType::wiggle:
+    fillRandom(ActionType::pause, 1);
     break;
   }
 
@@ -186,11 +208,11 @@ ActionType Action::randomType()
   return randomActionArray[random];
 }
 
-float Action::pickNewRangeForTopServo()
+float Action::pickNewRangeForTopServo(float minRange, float maxRange)
 {
   // Pick new range at a distance from current angle
   float currentAngleNormalized = servoTop->getAngleNormalized();
-  float change = Random::randomFloatRange(swishRangeMin, swishRangeMax);
+  float change = Random::randomFloatRange(minRange, maxRange);
 
   // Send it in the other direction from the half of the range we're in
   float newAngle;
@@ -261,7 +283,7 @@ void Action::swingServos()
 
   float swingTime = Random::randomFloatRange(swingRateMinS, swingRateMaxS);
   float thirdTime = swingTime / 3.0;
-  float newAngle = pickNewRangeForTopServo();
+  float newAngle = pickNewRangeForTopServo(swishRangeMax, swishRangeMax);
 
   servoBottom->setAngle(1, thirdTime, TweenType::out);
   servoBottom->queueAngle(thirdTime, 0, thirdTime, TweenType::in);
@@ -287,7 +309,7 @@ void Action::swishServos()
   count--;
 
   float swishTime = Random::randomFloatRange(swishRateMinS, swishRateMaxS);
-  float newAngle = pickNewRangeForTopServo();
+  float newAngle = pickNewRangeForTopServo(swishRangeMin, swishRangeMax);
 
   // Assign the angle
   servoTop->setAngle(newAngle, swishTime, TweenType::linear);
@@ -296,6 +318,36 @@ void Action::swishServos()
 
 #ifdef LOG
   Serial.print("Swish remaining: ");
+  Serial.print(count);
+  Serial.print(" time: ");
+  Serial.print(timer);
+  Serial.print(" angle: ");
+  Serial.println(newAngle);
+#endif
+}
+
+void Action::wiggleServos()
+{
+  if (timer > 0 || count <= 0)
+  {
+    return;
+  }
+
+  count--;
+
+  float time = wiggleSwingRate * 2;
+  float thirdTime = time / 3.0;
+
+  float newAngle = pickNewRangeForTopServo(wiggleSwingRangeMin, wiggleSwingRangeMax);
+  servoTop->setAngle(newAngle, time, TweenType::linear);
+
+  float randomTopAngle = Random::randomFloatRange(wiggleSwingRangeMin, wiggleSwingRangeMax);
+  servoBottom->setAngle(randomTopAngle, thirdTime, TweenType::out);
+  servoBottom->queueAngle(thirdTime, 0, thirdTime, TweenType::in);
+  timer = time + wiggleSwingRate;
+
+#ifdef LOG
+  Serial.print("Wiggle remaining: ");
   Serial.print(count);
   Serial.print(" time: ");
   Serial.print(timer);
